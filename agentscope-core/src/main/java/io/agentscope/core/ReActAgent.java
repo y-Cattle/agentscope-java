@@ -738,6 +738,8 @@ public class ReActAgent extends AgentBase implements AutoCloseable {
 
     @Override
     protected Object beforeAgentExecution(List<Msg> msgs, RuntimeContext rc, RunControl control) {
+        // 教学：用本次运行的用户和会话定位状态，再创建本次调用独有的执行对象。
+        // 并发调试时观察 scope.state，避免用 Agent 实例上的默认会话状态判断本次运行。
         RuntimeContext ctx = rc;
         if (ctx == null) {
             ctx = RuntimeContext.empty();
@@ -2408,6 +2410,7 @@ public class ReActAgent extends AgentBase implements AutoCloseable {
          * @return Mono containing the final result message
          */
         private Mono<Msg> reasoning(int iter, boolean ignoreMaxIters) {
+            // 教学：iter 是推理与工具循环的迭代索引。到达限制时转入总结阶段。
             // Check maxIters unless ignoreMaxIters is set
             if (!ignoreMaxIters && iter >= maxIters) {
                 return summarizing();
@@ -2436,6 +2439,8 @@ public class ReActAgent extends AgentBase implements AutoCloseable {
                                 List<Msg> modelInput =
                                         MessageUtils.prependSystemMessage(
                                                 event.getInputMessages(), event.getSystemMessage());
+                                // 教学：在这里分别查看本轮模型能看到的消息和工具描述。
+                                // 后续模型响应里的工具名与参数由工具执行阶段消费。
                                 List<ToolSchema> tools =
                                         activeToolkit.getToolSchemas(
                                                 state.getToolContext().getActivatedGroups(),
@@ -3510,6 +3515,8 @@ public class ReActAgent extends AgentBase implements AutoCloseable {
         private Mono<List<Map.Entry<ToolUseBlock, ToolResultBlock>>> executeToolCalls(
                 List<ToolUseBlock> toolCalls,
                 BiConsumer<ToolUseBlock, ToolResultBlock> internalChunkCallback) {
+            // 教学：结果按调用列表的顺序配对，方便把每个结果关联回对应的工具调用。
+            // 普通执行异常会转换为工具错误结果。中断继续向外传递，由运行控制处理。
             return dispatchToolCalls(toolCalls, internalChunkCallback)
                     .map(
                             results ->
